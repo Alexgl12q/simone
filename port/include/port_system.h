@@ -10,6 +10,7 @@
 
 /* Includes del sistema */
 #include <stdint.h>
+#include <stdbool.h>
 
 /**
  * @brief Initializes the system.
@@ -47,5 +48,41 @@ void port_system_delay_ms(uint32_t ms);
  * @note This function is useful to implement periodic tasks.
  */
 void port_system_delay_until_ms(uint32_t *t, uint32_t ms);
+
+/*----------------------------------------------------------------------------
+ * POWER AND TIMER RELATED FUNCTIONS (Low Power Modes)
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Suspends the SysTick interrupt.
+ *
+ * This function disables the SysTick interrupt request to avoid waking up
+ * the processor every 1ms during sleep modes.
+ */
+void port_system_systick_suspend(void);
+
+/**
+ * @brief Resumes the SysTick interrupt.
+ *
+ * This function enables the SysTick interrupt request to resume time counting
+ * after waking up from a low power mode.
+ */
+void port_system_systick_resume(void);
+
+/**
+ * @brief Enters a light sleep mode (CPU clock off).
+ *
+ * In this mode, the CPU stops executing instructions but peripherals remain
+ * active. It uses port_system_systick_suspend/resume to manage the time base.
+ */
+void port_system_sleep(void);
+
+/**
+ * @brief Enters a deep sleep mode (Stop mode).
+ *
+ * This mode stops the CPU and all high-speed clocks. It requires clock
+ * reconfiguration upon wakeup.
+ */
+void port_system_power_stop(void);
 
 #endif /* PORT_SYSTEM_H_ */

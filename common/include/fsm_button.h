@@ -91,6 +91,7 @@ uint32_t fsm_button_get_debounce_time_ms (fsm_button_t *p_fsm);
  * @brief Check if the button FSM is active, or not.
  * 
  * Se considera activa si el estado actual es diferente a BUTTON_RELEASED.
+ * Esta función es necesaria para la gestión de los modos de bajo consumo.
  * 
  * @param p_fsm Pointer to an fsm_button_t struct
  * @return true si hay actividad (pulsado o procesando rebotes), false si está inactivo.

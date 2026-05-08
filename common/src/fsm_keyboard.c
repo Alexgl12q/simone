@@ -21,6 +21,7 @@
 #include "fsm.h"
 #include "fsm_keyboard.h"
 #include "keyboards.h"
+
 /* Typedefs --------------------------------------------------------------------*/
 
 /* Private functions -----------------------------------------------------------*/
@@ -28,7 +29,7 @@
  * @brief Check if the timeout to activate a new row and scan columns has passed.
  * 
  * @param p_this Pointer to an fsm_t struct than contains an fsm_keyboard_t
- * @param Return the value of the field flag_row_timeout (true or false)
+ * @return the value of the field flag_row_timeout (true or false)
  */
 static bool check_row_timeout(fsm_t *p_this) {
     fsm_keyboard_t *p_fsm = (fsm_keyboard_t *)p_this;
@@ -110,26 +111,22 @@ static fsm_trans_t fsm_trans_keyboard[] = {
     { KEYBOARD_RELEASED_WAIT_ROW, check_row_timeout,       KEYBOARD_RELEASED_WAIT_ROW, do_excite_next_row    },
     { KEYBOARD_RELEASED_WAIT_ROW, check_keyboard_pressed,  KEYBOARD_PRESSED_WAIT,      do_store_tick_pressed },
     { KEYBOARD_PRESSED_WAIT,      check_timeout,           KEYBOARD_PRESSED,           NULL                  },
-    { KEYBOARD_PRESSED,           check_keyboard_released, KEYBOARD_RELEASED_WAIT,     do_set_key_value      },
+    { KEYBOARD_PRESSED,           check_keyboard_released, KEYBOARD_RELEASED_WAIT,      do_set_key_value      },
     { KEYBOARD_RELEASED_WAIT,     check_timeout,           KEYBOARD_RELEASED_WAIT_ROW, NULL                  },
     { -1, NULL, -1, NULL }
 };
 
-/* State machine input or transition functions */
-
-/* State machine output or action functions */
-
-/* Other auxiliary functions */
+/* Auxiliary functions -------------------------------------------------------*/
 static void fsm_keyboard_init(fsm_keyboard_t *p_fsm_keyboard, uint32_t debounce_time_ms, uint8_t keyboard_id)
 {
     // Initialize the FSM
     fsm_init(&p_fsm_keyboard->f, fsm_trans_keyboard);
 
-    /* TODO alumnos: */
     // Initialize the fields of the FSM structure
     p_fsm_keyboard->debounce_time_ms = debounce_time_ms;
     p_fsm_keyboard->keyboard_id = keyboard_id;
     p_fsm_keyboard->tick_pressed = 0;
+    p_fsm_keyboard->next_timeout = 0;
     
     /* Inicializar el hardware a través de PORT */
     port_keyboard_init(keyboard_id);
@@ -177,6 +174,13 @@ void fsm_keyboard_reset_key_value(fsm_keyboard_t *p_fsm) {
     p_fsm->key_value = p_fsm->invalid_key;
 }
 
+/**
+ * @brief Comprueba si la FSM del teclado está activa.
+ * 
+ * Según los requisitos de la Versión 4, se considera activa si NO está en el 
+ * estado KEYBOARD_RELEASED_WAIT_ROW.
+ */
 bool fsm_keyboard_check_activity(fsm_keyboard_t *p_fsm) {
-    return false; /* Version 4 requirement */
+    int current_state = fsm_get_state(&(p_fsm->f));
+    return (current_state != KEYBOARD_RELEASED_WAIT_ROW);
 }

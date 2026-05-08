@@ -14,7 +14,8 @@
 // Include headers of different port elements:
 #include "port_keyboard.h"
 #include "stm32f4_keyboard.h"
-
+#include "port_simone.h"
+#include "stm32f4_simone.h"
 //------------------------------------------------------
 // PRIVATE FUNCTIONS :)
 //------------------------------------------------------
@@ -50,16 +51,6 @@ static void _check_column_interrupt(uint8_t column_index)
 //------------------------------------------------------
 /**
  * @brief Interrupt service routine for the System tick timer (SysTick).
- *
- * @note This ISR is called when the SysTick timer generates an interrupt.
- * The program flow jumps to this ISR and increments the tick counter by one millisecond.
- *
- * > **TO-DO alumnos:**
- * >
- * > ✅ 1. **Increment the System tick counter `msTicks` in 1 count.** To do so, use the function `port_system_get_millis()` and `port_system_set_millis()`.
- *
- * @warning **The variable `msTicks` must be declared volatile!** Just because it is modified by a call of an ISR, in order to avoid [*race conditions*](https://en.wikipedia.org/wiki/Race_condition). **Added to the definition** after *static*.
- *
  */
 void SysTick_Handler(void)
 {
@@ -69,18 +60,19 @@ void SysTick_Handler(void)
 
 /**
  * @brief Interrupt service routine for the EXTI line 15 to 10.
- * 
- * 
  */
 void EXTI15_10_IRQHandler(void)
 {
+    /* Reanuda el SysTick inmediatamente al detectar la pulsación */
+    port_system_systick_resume();
+
     /* ISR user button */
     if (EXTI->PR & BIT_POS_TO_MASK(buttons_arr[PORT_USER_BUTTON_ID].pin))
     {
         GPIO_TypeDef *p_port = buttons_arr[PORT_USER_BUTTON_ID].p_port;
         uint8_t pin = buttons_arr[PORT_USER_BUTTON_ID].pin;
         bool activated = stm32f4_system_gpio_read(p_port, pin);
-        //Activado por flanco de bajada, el pin se pone a 0 cuando se pulsa el botón, por lo que si el pin está activado, el botón no está pulsado
+        
         if(activated)
         {
             buttons_arr[PORT_USER_BUTTON_ID].flag_pressed = false;
@@ -90,7 +82,7 @@ void EXTI15_10_IRQHandler(void)
             buttons_arr[PORT_USER_BUTTON_ID].flag_pressed = true;
         }
         //Clear pending bit of the EXTI line associated with the USER BUTTON pin
-        EXTI->PR = BIT_POS_TO_MASK(buttons_arr[PORT_USER_BUTTON_ID].pin); 
+        EXTI->PR = BIT_POS_TO_MASK(buttons_arr[PORT_USER_BUTTON_ID].pin);
     }
 
     uint8_t col1_pin = keyboards_arr[PORT_KEYBOARD_MAIN_ID].p_col_pins[PORT_KEYBOARD_COL_1];
@@ -105,8 +97,9 @@ void EXTI15_10_IRQHandler(void)
  */
 void EXTI9_5_IRQHandler(void)
 {
-    /* Keyboard Column 0 and 3 */
-    
+    /* Reanuda el SysTick inmediatamente al detectar la pulsación */
+    port_system_systick_resume();
+
     /* Check Column 0 */
     uint8_t col0_pin = keyboards_arr[PORT_KEYBOARD_MAIN_ID].p_col_pins[PORT_KEYBOARD_COL_0];
     if (EXTI->PR & BIT_POS_TO_MASK(col0_pin))
@@ -127,8 +120,10 @@ void EXTI9_5_IRQHandler(void)
  */
 void EXTI4_IRQHandler(void)
 {
+    /* Reanuda el SysTick inmediatamente al detectar la pulsación */
+    port_system_systick_resume();
+
     /* Keyboard Column 2 */
-    /* Only one line triggers this ISR, so no need for 'if' */
     _check_column_interrupt(PORT_KEYBOARD_COL_2);
 }
 
@@ -144,5 +139,29 @@ void TIM5_IRQHandler(void)
         
         /* 2. Set the row timeout flag */
         port_keyboard_set_row_timeout_status(PORT_KEYBOARD_MAIN_ID, true);
+    }
+}
+/**
+ * @brief Interrupt service routine for the TIM3 timer (Simone Timer).
+ * Gestiona el control de tiempos de reproducción y de espera del usuario.
+ */
+void TIM3_IRQHandler(void)
+{
+    /* Verificar si la interrupción es por actualización (Update Interrupt Flag) */
+    if (TIM3->SR & TIM_SR_UIF) {
+        
+        /* 1. Limpiar el flag de interrupción de hardware */
+        TIM3->SR &= ~TIM_SR_UIF;
+
+        /* 2. Detener el temporizador inmediatamente (comportamiento One-shot) */
+        /* Esto evita que el temporizador siga contando innecesariamente */
+        TIM3->CR1 &= ~TIM_CR1_CEN;
+
+        /* 3. Notificar a la capa de abstracción que el tiempo ha expirado */
+        /* simone_hw.flag_timer_timeout se pondrá a true */
+        port_simone_set_timeout_status(true);
+        
+        /* 4. Reanudar el SysTick si el sistema estaba en modo de bajo consumo */
+        port_system_systick_resume();
     }
 }
